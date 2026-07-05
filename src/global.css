@@ -1,3 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "@firebase-oss/ui-styles/tailwind";
+
+/* 3. 最後に独自のカスタム変数 */
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
