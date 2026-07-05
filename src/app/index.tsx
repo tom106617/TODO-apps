@@ -139,8 +139,8 @@ export default function App() {
           <header className="px-6 pt-6 pb-4 z-10">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-white">タスク管理</h1>
-                <p className="text-sm text-gray-400 mt-1">FirebaseUI でログインして使い始めましょう</p>
+                <h1 className="text-3xl font-black tracking-tight text-white">TODO</h1>
+                <p className="text-sm text-gray-400 mt-1">ログインして使い始めましょう</p>
               </div>
               {user ? (
                 <button
