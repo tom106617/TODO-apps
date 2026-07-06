@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "todo-apps",
-    "slug": "todo-apps",
+    "name": "ToMin TODO",
+    "slug": "ToMin-TODO",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/TODO.png",
     "scheme": "todoapps",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/TODO.png"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +21,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/TODO.png"
     },
     "plugins": [
       "expo-router",
@@ -29,7 +29,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/TODO.png",
           "imageWidth": 76
         }
       ]
