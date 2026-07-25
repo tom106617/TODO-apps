@@ -60,6 +60,10 @@ export default function App() {
   const [tabInputIcon, setTabInputIcon] = useState('📝');
   const [tabInputColor, setTabInputColor] = useState('#3B82F6');
 
+  // ✨ タスクのインライン編集用のステート
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editTodoText, setEditTodoText] = useState('');
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
@@ -186,6 +190,23 @@ export default function App() {
     }
   };
 
+  // ✨ タスクの修正を保存する関数
+  const saveEditTodo = async (id: string) => {
+    if (!editTodoText.trim()) {
+      setEditingTodoId(null);
+      return;
+    }
+    try {
+      await updateDoc(doc(db, activeTab, id), {
+        title: editTodoText.trim(),
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error("Error updating document: ", error);
+    }
+    setEditingTodoId(null);
+  };
+
   // 🔄 ドラッグ＆ドロップの共通イベントハンドラー
   const handleOnDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -246,13 +267,18 @@ export default function App() {
   // タブの追加または編集の保存処理
   const handleSaveTab = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!tabInputName.trim() || !user) return;
+
+    // ✨ 名前もアイコンも両方空の場合は保存せずリターン
+    if (!user || (!tabInputName.trim() && !tabInputIcon.trim())) {
+      alert("タブの名前かアイコンのどちらかを入力してください。");
+      return;
+    }
 
     if (editingTab) {
       try {
         await updateDoc(doc(db, 'app_tabs', editingTab.id), {
           name: tabInputName.trim(),
-          icon: tabInputIcon,
+          icon: tabInputIcon.trim(), // ✨ 前後の空白を削除
           color: tabInputColor,
         });
       } catch (e) {
@@ -263,7 +289,7 @@ export default function App() {
       try {
         await addDoc(collection(db, 'app_tabs'), {
           name: tabInputName.trim(),
-          icon: tabInputIcon,
+          icon: tabInputIcon.trim(), // ✨ 前後の空白を削除
           color: tabInputColor,
           index: nextTabIndex,
         });
@@ -327,31 +353,31 @@ export default function App() {
     await auth.signOut();
   };
 
+  // ✨ タイトル表示用のステートを追加
+  const [showTitle, setShowTitle] = useState(true);
+
+  // ✨ アプリ起動から3秒（3000ミリ秒）後にタイトルを非表示にする
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowTitle(false);
+    }, 1000); // 1000 = 1秒。もっと早く消したい場合は数値を減らしてください
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <FirebaseUIProvider ui={ui}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col font-sans relative">
+        {/* ✨ min-h-screen を h-screen と overflow-hidden に変更し画面高さを固定 */}
+        <div className="h-screen bg-gray-900 text-gray-100 flex flex-col font-sans relative overflow-hidden">
 
-          <header className="px-6 pt-6 pb-4 z-10">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                {/* 🏷️ 必要に応じてヘッダー内の名称を変更してください */}
-                <h1 className="text-3xl font-black tracking-tight text-white">ToMin TODO</h1>
-                <p className="text-sm text-gray-400 mt-1">二人の買い出しシェアリスト</p>
-              </div>
-              {!isLoading && user ? (
-                <button
-                  onClick={handleSignOut}
-                  className="rounded-xl border border-gray-700 bg-gray-800 px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 transition-all active:scale-95 shadow-sm"
-                >
-                  ログアウト
-                </button>
-              ) : !isLoading ? (
-                <span className="rounded-full border border-blue-500/40 bg-blue-500/10 px-3 py-1 text-xs text-blue-300">
-                  未ログイン
-                </span>
-              ) : null}
-            </div>
+          <header
+            className={`z-10 shrink-0 overflow-hidden transition-all duration-700 ease-in-out ${showTitle
+              ? 'max-h-32 opacity-100 px-6 pt-6 pb-4'
+              : 'max-h-0 opacity-0 px-6 pt-0 pb-0'
+              }`}
+          >
+            <h1 className="text-3xl font-black tracking-tight text-white">ToMin TODO</h1>
+            <p className="text-sm text-gray-400 mt-1">二人の買い出しシェアリスト</p>
           </header>
 
           {isLoading ? (
@@ -386,13 +412,14 @@ export default function App() {
             // 全体を一つのDragDropContextで囲み、typeで区別します
             <DragDropContext onDragEnd={handleOnDragEnd}>
 
-              {/* 🔄 タブコレクション切り替えタブバー（並び替え対応） */}
+              {/* 🔄 タブコレクション切り替えタブバー（均等配置＆並び替え対応） */}
               <Droppable droppableId="tabs-bar" direction="horizontal" type="TABS">
                 {(provided: any) => (
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="flex border-b border-gray-700 bg-gray-800 overflow-x-auto scrollbar-none"
+                    // ✨ flex と w-full を使って領域一杯に広げ、flex-1で各タブを均等に引き伸ばします
+                    className="flex w-full border-b border-gray-700 bg-gray-800 overflow-x-auto scrollbar-none shrink-0"
                   >
                     {tabs.map((group, index) => {
                       const isActive = activeTab === group.id;
@@ -408,34 +435,43 @@ export default function App() {
                                 ...dragProvided.draggableProps.style,
                                 opacity: snapshot.isDragging ? 0.8 : 1,
                               }}
-                              className="flex-1 min-w-[100px] relative flex items-center justify-center select-none"
+                              // ✨ flex-1 を復活させ、さらに min-w-0 を入れることで均等配置しつつ縮小崩れを防ぎます
+                              className="flex-1 min-w-0 shrink-0 relative flex items-center justify-center select-none"
                             >
-                              <button
+                              <div
                                 style={isActive ? { borderBottomColor: group.color } : {}}
-                                className={`w-full flex flex-col sm:flex-row items-center justify-center py-3 relative border-b-2 transition-all ${isActive ? 'border-b-4 text-white font-bold' : 'border-transparent text-gray-400'}`}
+                                className={`w-full flex items-center justify-center py-3 px-1 relative border-b-2 transition-colors cursor-pointer ${isActive ? 'border-b-4 text-white font-bold' : 'border-transparent text-gray-400'}`}
                                 onClick={() => setActiveTab(group.id)}
                                 onDoubleClick={() => openEditTabModal(group)}
                               >
-                                <div className="flex items-center justify-center">
-                                  <span className="mr-1 text-base">{group.icon}</span>
-                                  <span className="text-xs sm:text-sm truncate max-w-[70px]">{group.name}</span>
+                                <div className="flex items-center justify-center min-w-0">
+                                  {group.icon && (
+                                    <span className={`text-base flex items-center shrink-0 ${group.name ? 'mr-1' : ''}`}>
+                                      {group.icon}
+                                    </span>
+                                  )}
+
+                                  {group.name ? (
+                                    <span className="text-xs sm:text-sm truncate leading-none">{group.name}</span>
+                                  ) : null}
+
+                                  {count > 0 && (
+                                    <span
+                                      style={{ backgroundColor: group.color }}
+                                      className={`shrink-0 ${(group.icon || group.name) ? 'ml-1.5' : ''} text-[10px] text-white px-1.5 rounded-full font-bold min-w-[18px] h-[18px] inline-flex items-center justify-center leading-none`}
+                                    >
+                                      {count}
+                                    </span>
+                                  )}
                                 </div>
+                              </div>
 
-                                {/* 件数バッジ */}
-                                {count > 0 && (
-                                  <span
-                                    style={{ backgroundColor: group.color }}
-                                    className="sm:ml-1.5 mt-0.5 sm:mt-0 text-[10px] text-white px-1.5 py-0.5 rounded-full font-bold min-w-[16px] text-center"
-                                  >
-                                    {count}
-                                  </span>
-                                )}
-                              </button>
-
-                              {/* 各タブの編集用の極小ギアボタン */}
                               <button
-                                onClick={() => openEditTabModal(group)}
-                                className="absolute right-1 top-1 text-[10px] text-gray-600 hover:text-gray-400 opacity-50 hover:opacity-100"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEditTabModal(group);
+                                }}
+                                className="absolute right-0.5 top-1 text-[10px] text-gray-600 hover:text-gray-400 opacity-50 hover:opacity-100 p-1"
                               >
                                 ⚙️
                               </button>
@@ -449,7 +485,7 @@ export default function App() {
                     {/* タブ追加ボタン */}
                     <button
                       onClick={openAddTabModal}
-                      className="px-4 py-3 text-gray-400 hover:text-white text-xl font-bold border-b-2 border-transparent transition-colors flex items-center justify-center"
+                      className="px-3 py-3 text-gray-400 hover:text-white text-xl font-bold border-b-2 border-transparent transition-colors flex items-center justify-center shrink-0"
                       title="タブを追加"
                     >
                       ➕
@@ -458,14 +494,14 @@ export default function App() {
                 )}
               </Droppable>
 
-              {/* タスク一覧表示メインエリア */}
-              <main className="flex-1 p-6 flex flex-col max-w-lg mx-auto w-full">
+              {/* タスク一覧表示メインエリア ✨ min-h-0 を追加してスクロール領域を確立 */}
+              <main className="flex-1 flex flex-col max-w-lg mx-auto w-full min-h-0">
                 <Droppable droppableId="todos-list" type="TODOS">
                   {(provided: any) => (
                     <div
                       {...provided.droppableProps}
                       ref={provided.innerRef}
-                      className="flex-1 overflow-y-auto pr-1 space-y-2"
+                      className="flex-1 overflow-y-auto pr-1 space-y-2 p-4"
                     >
                       {currentTodos.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -494,21 +530,40 @@ export default function App() {
                                   <span className="text-transparent hover:text-white text-xs">✓</span>
                                 </button>
 
-                                <div className="flex-1 pr-2">
-                                  <p className="text-base text-gray-200 font-medium">
-                                    {item.title}
-                                  </p>
-                                  {item.description ? (
-                                    <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>
-                                  ) : null}
-                                </div>
-
-                                <button
-                                  className="p-1 text-sm hover:bg-gray-700 rounded transition-colors"
-                                  onClick={() => deleteTodoFromDB(item.id)}
+                                {/* ✨ テキストクリックで編集モードに切り替え */}
+                                <div
+                                  className="flex-1 pr-2 cursor-pointer"
+                                  onClick={() => {
+                                    if (editingTodoId !== item.id) {
+                                      setEditingTodoId(item.id);
+                                      setEditTodoText(item.title);
+                                    }
+                                  }}
                                 >
-                                  🗑️
-                                </button>
+                                  {editingTodoId === item.id ? (
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      className="w-full bg-gray-700 text-white border border-gray-500 rounded px-2 py-1 text-base focus:outline-none focus:border-blue-500"
+                                      value={editTodoText}
+                                      onChange={(e) => setEditTodoText(e.target.value)}
+                                      onBlur={() => saveEditTodo(item.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') saveEditTodo(item.id);
+                                        if (e.key === 'Escape') setEditingTodoId(null);
+                                      }}
+                                    />
+                                  ) : (
+                                    <>
+                                      <p className="text-base text-gray-200 font-medium">
+                                        {item.title}
+                                      </p>
+                                      {item.description ? (
+                                        <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>
+                                      ) : null}
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </Draggable>
@@ -520,13 +575,13 @@ export default function App() {
                 </Droppable>
               </main>
 
-              <footer className="bg-gray-800 border-t border-gray-700 p-4">
+              <footer className="bg-gray-800 border-t border-gray-700 px-4 pt-4 pb-10 shrink-0">
                 <form onSubmit={addTodo} className="max-w-lg mx-auto flex space-x-3">
                   <input
                     type="text"
                     className="flex-1 bg-gray-900 text-white rounded-lg px-4 py-3 text-lg border border-gray-700 focus:outline-none focus:ring-2"
                     style={{
-                      boxShadow: `0 0 0 2px ${activeColor}`,
+                      boxShadow: `0 0 0 2px ${activeColor} `,
                       fontSize: '18px'
                     }}
                     placeholder="新しいタスクを入力..."
@@ -552,7 +607,7 @@ export default function App() {
                     </h3>
 
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400 font-bold">タブの名前</label>
+                      <label className="text-xs text-gray-400 font-bold">タブの名前 (任意)</label>
                       <input
                         type="text"
                         maxLength={12}
@@ -560,7 +615,7 @@ export default function App() {
                         placeholder="例: カルディ, ホームセンター"
                         value={tabInputName}
                         onChange={(e) => setTabInputName(e.target.value)}
-                        required
+                      // ✨ required を削除しました
                       />
                     </div>
 
