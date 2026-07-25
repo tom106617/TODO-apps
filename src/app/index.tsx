@@ -182,7 +182,17 @@ export default function App() {
     }
   };
 
+  // 🔄 修正：削除ボタンを押した瞬間にローカルから消し、裏でDBを削除する
   const deleteTodoFromDB = async (id: string) => {
+    // 楽観的更新：即座にローカルステートから除外
+    setAllTodos((prev) => {
+      const currentList = prev[activeTab] || [];
+      return {
+        ...prev,
+        [activeTab]: currentList.filter((item) => item.id !== id),
+      };
+    });
+
     try {
       await deleteDoc(doc(db, activeTab, id));
     } catch (error) {
@@ -371,9 +381,9 @@ export default function App() {
         <div className="h-screen bg-gray-900 text-gray-100 flex flex-col font-sans relative overflow-hidden">
 
           <header
-            className={`z-10 shrink-0 overflow-hidden transition-all duration-700 ease-in-out ${showTitle
-              ? 'max-h-32 opacity-100 px-6 pt-6 pb-4'
-              : 'max-h-0 opacity-0 px-6 pt-0 pb-0'
+            className={`absolute top-0 left-0 right-0 z-20 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 transition-all duration-700 ease-in-out pointer-events-none ${showTitle
+              ? 'translate-y-0 opacity-100 py-6 px-6 shadow-2xl'
+              : '-translate-y-full opacity-0 py-0 px-6'
               }`}
           >
             <h1 className="text-3xl font-black tracking-tight text-white">ToMin TODO</h1>
@@ -465,16 +475,6 @@ export default function App() {
                                   )}
                                 </div>
                               </div>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEditTabModal(group);
-                                }}
-                                className="absolute right-0.5 top-1 text-[10px] text-gray-600 hover:text-gray-400 opacity-50 hover:opacity-100 p-1"
-                              >
-                                ⚙️
-                              </button>
                             </div>
                           )}
                         </Draggable>
